@@ -1,8 +1,10 @@
 # =============================================================================
 # oxidrive example configuration
 # =============================================================================
-# Copy this file to `config.toml` (or `config.json`) in the directory from which
-# you run `oxidrive`, or pass `--config /path/to/file.toml` explicitly.
+# Copy this file to `config.toml` (or `config.json`) in the **parent directory**
+# of the folder you will sync (`sync_dir` below) — not inside the oxidrive git
+# clone. Run `oxidrive setup` / `sync` from that parent, or pass
+# `--config /path/to/file.toml` explicitly.
 #
 # Resolution order when `--config` is omitted:
 #   1. ./config.toml
@@ -106,8 +108,12 @@ use_leases = false
 # -----------------------------------------------------------------------------
 # Logging
 # -----------------------------------------------------------------------------
-# Default filter when `RUST_LOG` is unset. CLI `--verbose` / `--quiet` still
-# influence tracing setup; CLI flags take priority over this value.
-log_level = "info"
+# Console is quiet by default (warnings and errors, Git-style `warning:` / `error:`).
+# `--verbose` adds readable step/summary lines (not a debug dump); `--verbose --verbose`
+# adds more detail in the same format. CLI flags take priority; `RUST_LOG` is an
+# escape hatch when no flags are set. `log_level = "info"` in an old config does
+# not raise the default console — use `--verbose`.
+log_level = "warn"
 # Optional: JSON lines to a daily-rotating file (parent directory is created if needed).
+# The file stays JSON even when the terminal uses the human-readable format.
 # log_file = "/var/log/oxidrive/oxidrive.log"

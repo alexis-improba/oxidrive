@@ -26,38 +26,47 @@ A single binary, no external dependencies, zero cloud configuration to maintain.
 
 ## Quick start
 
+Do **not** keep the config or run `setup` inside the oxidrive git clone. Put `config.toml` in the **parent** of the folder you will sync, then run oxidrive from that parent (it looks for `./config.toml` in the current directory).
+
 ```bash
-# 1. Build
+# 1. Install onto PATH (preferred)
 git clone https://github.com/Improba/oxidrive.git
 cd oxidrive
-cargo build --release
+cargo install --path .
 
-# 2. Configure
-cp config.example.toml config.toml
-# → Fill in client_id, client_secret, sync_dir, and drive_folder_id
+# 2. Configure next to the sync folder — not in the repo
+#    Example: sync folder is ~/DriveSync → work from ~
+cd ~
+cp /path/to/oxidrive/config.example.toml ./config.toml
+# → Fill in client_id, client_secret, drive_folder_id
+# → Set sync_dir to the folder to mirror (e.g. "/home/you/DriveSync")
 
-# 3. Authenticate
-./target/release/oxidrive setup
+# 3. Authenticate (creates token.json next to config.toml unless you change token_path)
+oxidrive setup
 
 # 4. Sync
-./target/release/oxidrive sync --once
+oxidrive sync --once
 ```
 
 ---
 
 ## Installation
 
-### From source (Cargo)
+### From source (`cargo install`, preferred)
+
+This is the recommended way to install oxidrive for daily use: Cargo puts the `oxidrive` binary on your `PATH` (typically `~/.cargo/bin`).
 
 Prerequisites: [Rust](https://www.rust-lang.org/tools/install) (2021 edition or newer).
 
 ```bash
 git clone https://github.com/Improba/oxidrive.git
 cd oxidrive
-cargo build --release
+cargo install --path .
 ```
 
-The binary is at `target/release/oxidrive`.
+Confirm with `which oxidrive` (or `oxidrive --version`). Re-run `cargo install --path .` after pulling updates.
+
+For a local debug binary without installing, `cargo build --release` still produces `target/release/oxidrive`.
 
 ### From binary releases
 
@@ -67,12 +76,13 @@ Pushing a version tag named `vX.Y.Z` (for example `v0.1.0`) runs the `[.github/w
 
 ## Configuration
 
-Configuration is loaded from a **TOML** (recommended) or **JSON** file. By default the program looks for `config.toml` in the current directory; you can force a path with `--config`.
+Configuration is loaded from a **TOML** (recommended) or **JSON** file. By default the program looks for `config.toml` (then `config.json`) in the **current working directory**; you can force a path with `--config`.
 
-Copy the example file and adjust it:
+Place that file in the **parent directory of `sync_dir`**, not inside the oxidrive repository. Run `oxidrive setup` and later commands from that same parent so the process finds `./config.toml` and writes `token.json` beside it.
 
 ```bash
-cp config.example.toml config.toml
+# From the parent of the folder you will sync (not from the git clone):
+cp /path/to/oxidrive/config.example.toml ./config.toml
 ```
 
 ### Example (`config.toml`)
@@ -102,7 +112,7 @@ ignore_patterns = [
 
 # index_dir = "/home/user/.cache/oxidrive/index"
 
-log_level = "info"
+log_level = "warn"
 debounce_ms = 2000
 ```
 
@@ -115,8 +125,8 @@ Full options are documented in `config.example.toml` at the project root.
 Useful global options:
 
 - `--config PATH`: configuration file.
-- `--verbose` / `--verbose --verbose`: increase log verbosity (`tracing`).
-- `--quiet`: less noise (overrides `--verbose`).
+- `--verbose`: extra Git-style log lines for oxidrive (steps, summary). Repeat (`--verbose --verbose`) for oxidrive debug detail, still in the same format (not a dump of HTTP crates).
+- `--quiet`: `warning:` / `error:` only (this is also the default; useful if `RUST_LOG` is chatty).
 
 ### `oxidrive setup`
 

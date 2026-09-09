@@ -79,7 +79,7 @@ pub async fn list_all_files(
                 tracing::warn!(
                     path = %rel,
                     file_id = %file.id,
-                    "skipping remote file with unsafe relative path"
+                    "skipping remote file with an unsafe path"
                 );
                 continue;
             }
@@ -87,11 +87,12 @@ pub async fn list_all_files(
             if unique_name != file.name {
                 if let Some(existing_file_id) = assigned_names.get(&file.name) {
                     tracing::warn!(
-                        path = %build_relative_from_parts(prefix.as_str(), file.name.as_str()),
-                        deduplicated_path = %rel,
+                        path = %rel,
                         first_file_id = %existing_file_id,
                         duplicate_file_id = %file.id,
-                        "duplicate Drive filename in folder; assigned deduplicated local path"
+                        "two files named '{}'; using '{}'",
+                        file.name,
+                        unique_name
                     );
                 }
             }
@@ -190,14 +191,6 @@ fn split_file_name(name: &str) -> (&str, &str) {
     match name.rfind('.') {
         Some(dot) if dot > 0 => (&name[..dot], &name[dot..]),
         _ => (name, ""),
-    }
-}
-
-fn build_relative_from_parts(prefix: &str, name: &str) -> RelativePath {
-    if prefix.is_empty() {
-        RelativePath::from(name)
-    } else {
-        RelativePath::from(format!("{prefix}/{name}"))
     }
 }
 

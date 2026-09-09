@@ -41,7 +41,7 @@ fn default_ignore_patterns() -> Vec<String> {
 }
 
 fn default_log_level() -> String {
-    "info".to_string()
+    "warn".to_string()
 }
 
 fn default_debounce_ms() -> u64 {
@@ -119,7 +119,8 @@ pub struct Config {
     pub ignore_patterns: Vec<String>,
     /// Optional directory for Markdown / search index artifacts.
     pub index_dir: Option<PathBuf>,
-    /// Default log level when `RUST_LOG` is unset (e.g. `info`, `debug`).
+    /// Console filter when no `--verbose` / `--quiet` and `RUST_LOG` is unset (`warn`).
+    /// Values `info` / `debug` / `trace` do not raise the default console; use `--verbose`.
     #[serde(default = "default_log_level")]
     pub log_level: String,
     /// Optional JSON log file path (daily rotation under the parent directory).
@@ -396,6 +397,11 @@ log_level = "debug"
         };
         let patterns = cfg.effective_ignore_patterns();
         assert!(patterns.contains(&".oxidrive/token.json".to_string()));
+    }
+
+    #[test]
+    fn default_config_uses_quiet_log_level() {
+        assert_eq!(Config::default().log_level, "warn");
     }
 
     #[test]

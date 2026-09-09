@@ -121,7 +121,7 @@ This pipeline can be triggered manually (`sync`), on a timer (`service`), or by 
 | CLI | **clap** | Subcommands, global flags, consistent help messages. |
 | Config | **serde** + **toml** | Human-readable format, evolvable schema. |
 | Errors | **thiserror** | Typed errors and stable messages for the CLI. |
-| Logging | **tracing** + **tracing-subscriber** | Levels, `RUST_LOG` filters, optional structured output (JSON). |
+| Logging | **tracing** + **tracing-subscriber** | Quiet console by default (Git-style `warning:` / `error:`); optional JSON file. |
 | FS watch | **notify** + **notify-debouncer-full** | Event aggregation to avoid sync storms. |
 | OAuth2 | **oauth2** | Standard flow for the Google API. |
 

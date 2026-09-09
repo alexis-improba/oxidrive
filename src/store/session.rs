@@ -60,12 +60,12 @@ pub fn get_or_create_device_id(
                 return Ok(identity.device_id);
             }
             Ok(_) => {
-                tracing::warn!("persisted device identity is empty; regenerating");
+                tracing::warn!("empty saved device identity; creating a new one");
             }
             Err(error) => {
                 tracing::warn!(
                     error = %error,
-                    "persisted device identity is invalid; regenerating"
+                    "could not read saved device identity; creating a new one"
                 );
             }
         }
@@ -194,14 +194,14 @@ impl Store {
                     tracing::warn!(
                         path = %path,
                         error = %e,
-                        "skipping invalid persisted sync metadata payload"
+                        "could not read saved sync metadata"
                     );
                     continue;
                 }
             };
             let rel = RelativePath::from(path.clone());
             if !rel.is_safe_non_empty() {
-                tracing::warn!(path = %path, "skipping unsafe persisted sync metadata path");
+                tracing::warn!(path = %path, "skipping saved sync metadata with an unsafe path");
                 continue;
             }
             records.insert(rel, record);
@@ -215,14 +215,14 @@ impl Store {
                     tracing::warn!(
                         path = %path,
                         error = %e,
-                        "skipping invalid persisted conversion payload"
+                        "could not read saved conversion"
                     );
                     continue;
                 }
             };
             let rel = RelativePath::from(path.clone());
             if !rel.is_safe_non_empty() {
-                tracing::warn!(path = %path, "skipping unsafe persisted conversion path");
+                tracing::warn!(path = %path, "skipping saved conversion with an unsafe path");
                 continue;
             }
             conversions.insert(rel, conversion);
@@ -236,7 +236,7 @@ impl Store {
                     path = %path,
                     len = data.len(),
                     max = MAX_UPLOAD_SESSION_BLOB_BYTES,
-                    "skipping oversized persisted upload session payload"
+                    "skipping saved upload session that is too large"
                 );
                 continue;
             }
@@ -246,14 +246,14 @@ impl Store {
                     tracing::warn!(
                         path = %path,
                         error = %e,
-                        "skipping invalid persisted upload session payload"
+                        "could not read saved upload session"
                     );
                     continue;
                 }
             };
             let rel = RelativePath::from(path.clone());
             if !rel.is_safe_non_empty() {
-                tracing::warn!(path = %path, "skipping unsafe persisted upload session path");
+                tracing::warn!(path = %path, "skipping saved upload session with an unsafe path");
                 continue;
             }
             upload_sessions.insert(rel, session);
@@ -264,20 +264,20 @@ impl Store {
         for (path, data) in folder_rows {
             let rel = RelativePath::from(path.clone());
             if !rel.is_safe_non_empty() {
-                tracing::warn!(path = %path, "skipping unsafe persisted folder id path");
+                tracing::warn!(path = %path, "skipping saved folder id with an unsafe path");
                 continue;
             }
             let drive_id = match String::from_utf8(data) {
                 Ok(id) if !id.trim().is_empty() => id,
                 Ok(_) => {
-                    tracing::warn!(path = %path, "skipping empty persisted folder id");
+                    tracing::warn!(path = %path, "skipping empty saved folder id");
                     continue;
                 }
                 Err(e) => {
                     tracing::warn!(
                         path = %path,
                         error = %e,
-                        "skipping invalid persisted folder id payload"
+                        "could not read saved folder id"
                     );
                     continue;
                 }
@@ -316,7 +316,7 @@ impl Store {
             conversions = conversion_count,
             upload_sessions = upload_session_count,
             folder_ids = folder_count,
-            "loaded persisted session state from redb"
+            "Loaded saved sync state"
         );
         Ok(())
     }
@@ -334,11 +334,7 @@ impl Store {
     ) -> Result<(), OxidriveError> {
         let (batch, rows_written, stale_rows_removed) = self.prepare_session_state_batch(redb)?;
         redb.replace_session_state_and_pending_cleanup_sync(batch, pending_cleanup_keys)?;
-        tracing::info!(
-            rows_written,
-            stale_rows_removed,
-            "persisted sync metadata to redb"
-        );
+        tracing::info!(rows_written, stale_rows_removed, "Saved sync metadata");
         Ok(())
     }
 
@@ -368,7 +364,7 @@ impl Store {
         tracing::info!(
             rows_written,
             stale_rows_removed,
-            "persisted sync metadata and page token to redb"
+            "Saved sync metadata and Drive cursor"
         );
         Ok(())
     }
@@ -385,7 +381,7 @@ impl Store {
 
         for (path, record) in snapshot {
             if !path.is_safe_non_empty() {
-                tracing::warn!(path = %path, "skipping unsafe in-memory sync metadata path");
+                tracing::warn!(path = %path, "skipping unsaved sync metadata with an unsafe path");
                 continue;
             }
             let key = path.as_str().to_string();
@@ -409,7 +405,7 @@ impl Store {
         let mut conversions = Vec::with_capacity(conversion_snapshot.len());
         for (path, conversion) in conversion_snapshot {
             if !path.is_safe_non_empty() {
-                tracing::warn!(path = %path, "skipping unsafe in-memory conversion path");
+                tracing::warn!(path = %path, "skipping unsaved conversion with an unsafe path");
                 continue;
             }
             let key = path.as_str().to_string();
@@ -434,7 +430,7 @@ impl Store {
         let mut upload_sessions = Vec::with_capacity(upload_snapshot.len());
         for (path, session) in upload_snapshot {
             if !path.is_safe_non_empty() {
-                tracing::warn!(path = %path, "skipping unsafe in-memory upload session path");
+                tracing::warn!(path = %path, "skipping unsaved upload session with an unsafe path");
                 continue;
             }
             let key = path.as_str().to_string();
@@ -446,7 +442,7 @@ impl Store {
                     path = %path,
                     len = bytes.len(),
                     max = MAX_UPLOAD_SESSION_BLOB_BYTES,
-                    "skipping oversized in-memory upload session payload"
+                    "skipping unsaved upload session that is too large"
                 );
                 continue;
             }
@@ -465,11 +461,11 @@ impl Store {
         for (path, drive_id) in folder_snapshot {
             let rel = RelativePath::from(path.as_str());
             if !rel.is_safe_non_empty() {
-                tracing::warn!(path = %path, "skipping unsafe in-memory folder id path");
+                tracing::warn!(path = %path, "skipping unsaved folder id with an unsafe path");
                 continue;
             }
             if drive_id.trim().is_empty() {
-                tracing::warn!(path = %path, "skipping empty in-memory folder id");
+                tracing::warn!(path = %path, "skipping empty unsaved folder id");
                 continue;
             }
             let key = rel.as_str().to_string();
@@ -648,7 +644,7 @@ impl Store {
                 g.insert(normalized, drive_id.to_string());
             }
             Err(e) => {
-                tracing::error!(error = %e, "failed to lock folder id map for write");
+                tracing::error!(error = %e, "could not lock the folder map for write");
             }
         }
     }
@@ -659,7 +655,7 @@ impl Store {
         match self.folder_ids.lock() {
             Ok(g) => g.get(&normalized).cloned(),
             Err(e) => {
-                tracing::error!(error = %e, "failed to lock folder id map for read");
+                tracing::error!(error = %e, "could not lock the folder map for read");
                 None
             }
         }

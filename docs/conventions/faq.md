@@ -59,7 +59,7 @@ It means a previous sync run stopped mid-operation (upload/download/delete recon
 oxidrive sync --once
 ```
 
-Then check `oxidrive status` again. If it stays non-zero, rerun with verbose logs (`--verbose --verbose`) and inspect recovery warnings.
+Then check `oxidrive status` again. If it stays non-zero, rerun with `--verbose` and read the recovery warnings.
 
 ## Does oxidrive work on Windows?
 

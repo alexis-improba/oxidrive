@@ -68,7 +68,7 @@ impl LocalWatcher {
                             Ok(ev) => ev,
                             Err(errs) => {
                                 for e in errs {
-                                    tracing::warn!("notify error: {e}");
+                                    tracing::warn!("file watcher error: {e}");
                                 }
                                 continue;
                             }
@@ -86,7 +86,7 @@ impl LocalWatcher {
 
                 tracing::warn!(
                     interval_ms = debounce.as_millis() as u64,
-                    "falling back to polling-based file watcher"
+                    "falling back to polling the folder for changes"
                 );
                 run_polling_watcher(&root, debounce, &tx);
             })
@@ -104,7 +104,7 @@ fn warn_inotify_limits() {
                 if n < 50_000 {
                     tracing::warn!(
                         max_user_watches = n,
-                        "inotify max_user_watches is low; large trees may miss events (raise /proc/sys/fs/inotify/max_user_watches)"
+                        "inotify max_user_watches is low; large folders may miss changes"
                     );
                 }
             }
@@ -127,13 +127,13 @@ fn try_native_watcher(
     }) {
         Ok(d) => d,
         Err(e) => {
-            tracing::warn!("notify debouncer setup failed: {e}");
+            tracing::warn!("could not set up the file-watcher debouncer: {e}");
             return None;
         }
     };
 
     if let Err(e) = debouncer.watch(root, RecursiveMode::Recursive) {
-        tracing::warn!("notify watch setup failed: {e}");
+        tracing::warn!("could not start the file watcher: {e}");
         return None;
     }
 
@@ -262,10 +262,7 @@ fn to_relative(root: &Path, path: &Path) -> Option<RelativePath> {
         if rel.is_safe_non_empty() {
             Some(rel)
         } else {
-            tracing::warn!(
-                path = trimmed,
-                "dropping unsafe local watcher relative path"
-            );
+            tracing::warn!(path = trimmed, "skipping unsafe local watcher path");
             None
         }
     }

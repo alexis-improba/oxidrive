@@ -29,36 +29,17 @@ use crate::drive::locks::lease_is_active;
 use crate::error::Result;
 use crate::sync::observability::{ConflictLogEntry, CONFLICT_LOG_FILE};
 use crate::types::{
-    Lease, PendingOp, PendingOpKind, PendingOpStage, RelativePath, SyncAction, SyncReport,
-    UploadSession, UploadSessionMode, MAX_UPLOAD_SESSION_BLOB_BYTES,
-    RESUMABLE_UPLOAD_SESSION_TTL_HOURS,
+    Lease, PendingOp, PendingOpKind, PendingOpStage, RelativePath, SyncAction, UploadSession,
+    UploadSessionMode, MAX_UPLOAD_SESSION_BLOB_BYTES, RESUMABLE_UPLOAD_SESSION_TTL_HOURS,
 };
 
-fn resolve_log_filter(cli: &Cli, config_log_level: &str) -> String {
-    if cli.quiet {
-        return "warn".to_string();
-    }
-    match cli.verbose {
-        0 => {
-            let level = config_log_level.trim();
-            if level.is_empty() {
-                "info".to_string()
-            } else {
-                level.to_string()
-            }
-        }
-        1 => "debug".to_string(),
-        _ => "trace".to_string(),
-    }
-}
-
-/// Initialize the global tracing subscriber (console + optional JSON file with rotation).
+/// Initialize the global tracing subscriber (human console + optional JSON file with rotation).
 ///
 /// Runs after CLI parsing and config loading so fallback filtering can include `config.log_level`
-/// (while still honoring `RUST_LOG` and CLI verbosity flags).
+/// (while still honoring `RUST_LOG` as an escape hatch when no verbosity flags are set).
 fn init_tracing(cli: &Cli, config_log_level: &str, log_file: Option<&Path>) -> Result<()> {
-    let fallback = resolve_log_filter(cli, config_log_level);
-    logging::init_logging(&fallback, log_file)?;
+    let filter = logging::resolve_log_filter(cli.quiet, cli.verbose, config_log_level);
+    logging::init_logging(&filter, log_file)?;
     Ok(())
 }
 
@@ -155,7 +136,7 @@ fn active_upload_sessions(db: &store::RedbStore) -> Result<Vec<StatusUploadSessi
                 warn!(
                     path = %path,
                     error = %e,
-                    "status: skipping invalid persisted upload session payload"
+                    "could not read saved upload session"
                 );
                 continue;
             }
@@ -196,7 +177,7 @@ fn active_pending_ops(db: &store::RedbStore) -> Result<Vec<StatusPendingOpRow>> 
                 warn!(
                     path = %path,
                     error = %e,
-                    "status: skipping invalid persisted pending-op payload"
+                    "could not read saved pending operation"
                 );
                 continue;
             }
@@ -224,7 +205,7 @@ fn active_leases(db: &store::RedbStore) -> Result<usize> {
         let lease: Lease = match bincode::deserialize(&raw) {
             Ok(lease) => lease,
             Err(e) => {
-                warn!(error = %e, "status: skipping invalid persisted lease payload");
+                warn!(error = %e, "could not read saved lease");
                 continue;
             }
         };
@@ -255,7 +236,7 @@ fn recent_conflicts(sync_dir: &Path, limit: usize) -> Result<Vec<ConflictLogEntr
             Err(e) => {
                 warn!(
                     error = %e,
-                    "status: skipping invalid conflict log line"
+                    "could not read conflict log line"
                 );
                 continue;
             }
@@ -320,20 +301,6 @@ fn auth_manager_from_config(config: &config::Config) -> Result<auth::AuthManager
     ))
 }
 
-fn print_sync_report(report: &SyncReport) {
-    println!(
-        "Sync complete: uploaded={}, downloaded={}, deleted_local={}, deleted_remote={}, conflicts={}, skipped={}, errors={}, duration_ms={}",
-        report.uploaded.len(),
-        report.downloaded.len(),
-        report.deleted_local.len(),
-        report.deleted_remote.len(),
-        report.conflicts.len(),
-        report.skipped,
-        report.errors.len(),
-        report.duration.as_millis()
-    );
-}
-
 fn print_dry_run_summary(actions: &[SyncAction]) {
     let mut upload = 0usize;
     let mut download = 0usize;
@@ -370,10 +337,13 @@ async fn dry_run_actions(
         .ok_or_else(|| error::OxidriveError::sync("config.drive_folder_id is required for sync"))?;
     store.set_root_drive_folder_id(Some(root_id.clone()))?;
 
-    tracing::info!("dry-run: scanning local filesystem");
+    tracing::info!("Scanning the local filesystem (dry-run)");
     let ignore_patterns = config.effective_ignore_patterns();
     let local = sync::scan_local(&config.sync_dir, &ignore_patterns).await?;
-    tracing::info!(files = local.len(), "dry-run: listing remote Drive tree");
+    tracing::info!(
+        files = local.len(),
+        "Listing the remote Drive tree (dry-run)"
+    );
     let remote = drive::list_all_files(client, &root_id).await?;
     store.set_remote_snapshot(remote.clone())?;
 
@@ -416,7 +386,7 @@ async fn dry_run_actions(
 
 async fn handle_setup(config: &config::Config) -> Result<()> {
     let auth_manager = auth_manager_from_config(config)?;
-    tracing::info!("setup: starting OAuth2 setup flow");
+    tracing::info!("Starting OAuth setup");
     auth_manager.setup().await?;
     let db = store::RedbStore::open(&state_db_path(config))?;
     let device_id = store::get_or_create_device_id(&db, config.device_id.as_deref())?;
@@ -435,12 +405,11 @@ async fn handle_sync(config: &config::Config, dry_run: bool, once: bool) -> Resu
     let session_store = store::Store::open(config.sync_dir.clone())?;
     let db = store::RedbStore::open(&state_db_path(config))?;
     let device_id = store::get_or_create_device_id(&db, config.device_id.as_deref())?;
-    println!("Using device id: {device_id}");
-    tracing::info!(device_id = %device_id, "sync: using device identity");
+    tracing::info!(device_id = %device_id, "Using this device identity");
 
     if dry_run {
         session_store.load_from_redb(&db)?;
-        tracing::info!("sync: running dry-run planning (no execution)");
+        tracing::info!("Planning a dry-run (no files will be changed)");
         let actions = dry_run_actions(config, &client, &session_store).await?;
         print_dry_run_summary(&actions);
         return Ok(());
@@ -450,13 +419,12 @@ async fn handle_sync(config: &config::Config, dry_run: bool, once: bool) -> Resu
     if daemon_enabled {
         tracing::info!(
             interval_secs = config.sync_interval_secs,
-            "sync: starting continuous daemon mode"
+            "Starting continuous daemon mode"
         );
         daemon::run_daemon(config, &client, &session_store, &db).await?;
     } else {
-        tracing::info!("sync: running single sync cycle");
+        tracing::info!("Running a single sync cycle");
         let report = sync::engine::run_sync(config, &client, &session_store, &db).await?;
-        print_sync_report(&report);
         daemon::persist_sync_summary(&db, &session_store, report.errors.is_empty()).await?;
     }
     Ok(())
@@ -671,7 +639,7 @@ async fn handle_status(config: &config::Config) -> Result<()> {
     }
 
     if config.drive_folder_id.is_none() {
-        warn!("config.drive_folder_id is not set; sync cannot run until it is configured");
+        warn!("drive folder is not set; sync cannot run until it is configured");
     }
     Ok(())
 }

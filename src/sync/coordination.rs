@@ -211,7 +211,7 @@ impl VersionVector {
         tracing::warn!(
             origin_device = origin_device,
             max_bytes = MAX_APP_PROPERTY_VALUE_BYTES,
-            "version vector cannot fit in Drive appProperties; writing an empty vector"
+            "version vector cannot fit in Drive metadata; writing an empty vector"
         );
         String::new()
     }
