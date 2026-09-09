@@ -209,7 +209,7 @@ pub fn determine_action_with_remote_ids(
                 tracing::warn!(
                     path = %path,
                     drive_file_id = m.drive_file_id.as_deref().unwrap_or_default(),
-                    "remote path missing but Drive object still present (likely duplicate-name remap); skipping local delete"
+                    "remote name is gone but the file is still on Drive; not deleting locally"
                 );
                 SyncAction::Skip { path: path.clone() }
             } else {
@@ -335,7 +335,7 @@ pub fn determine_action_converted_with_remote_ids(
                 tracing::warn!(
                     path = %path,
                     drive_file_id = m.drive_file_id.as_deref().unwrap_or_default(),
-                    "remote path missing but Drive object still present (likely duplicate-name remap); skipping local delete"
+                    "remote name is gone but the file is still on Drive; not deleting locally"
                 );
                 SyncAction::Skip { path: path.clone() }
             } else {

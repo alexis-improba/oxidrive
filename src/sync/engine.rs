@@ -54,7 +54,7 @@ pub async fn run_sync_incremental(
     store.load_from_redb(redb)?;
     recover_pending_operations(store, redb)?;
 
-    tracing::info!("scanning local filesystem");
+    tracing::info!("Scanning the local filesystem");
     let ignore_patterns = config.effective_ignore_patterns();
     let local = scan_local(&config.sync_dir, &ignore_patterns).await?;
 
@@ -72,7 +72,7 @@ pub async fn run_sync_incremental(
 
     let remote_file_ids: HashSet<String> = remote.values().map(|f| f.id.clone()).collect();
 
-    tracing::info!(paths = paths.len(), "computing sync actions");
+    tracing::info!(paths = paths.len(), "Computing sync actions");
     let mut actions = Vec::new();
     for p in paths {
         let l = local.get(&p);
@@ -121,7 +121,7 @@ pub async fn run_sync_incremental(
         tracing::info!(
             uploads = upload_paths.len(),
             known_folders = existing_folders.len(),
-            "ensuring remote folder hierarchy for upload parents"
+            "Creating missing remote folders for uploads"
         );
         let ensured =
             ensure_folder_hierarchy(client, &upload_path_refs, &root_id, &existing_folders).await?;
@@ -130,7 +130,7 @@ pub async fn run_sync_incremental(
         }
     }
 
-    tracing::info!(actions = actions.len(), "executing sync actions");
+    tracing::info!(actions = actions.len(), "Applying sync actions");
     clear_resolved_tombstones(redb, &actions)?;
     let report = executor.execute(actions, client, store, redb).await?;
     match purge_trash(
@@ -139,11 +139,11 @@ pub async fn run_sync_incremental(
         Utc::now(),
     ) {
         Ok(purged) if purged > 0 => {
-            tracing::info!(purged, "purged expired files from local trash");
+            tracing::info!(purged, "Removed expired files from local trash");
         }
         Ok(_) => {}
         Err(error) => {
-            tracing::warn!(error = %error, "failed to purge local trash");
+            tracing::warn!(error = %error, "could not clean local trash");
         }
     }
 
@@ -155,7 +155,7 @@ pub async fn run_sync_incremental(
                 changed = changed.len(),
                 indexed,
                 index_dir = %index_dir.display(),
-                "updated index for changed files"
+                "Updated the search index"
             );
         }
     }
@@ -171,18 +171,18 @@ pub async fn run_sync_incremental(
         store.persist_to_redb_with_pending_cleanup(redb, &committed_pending_keys)?;
         tracing::warn!(
             errors = report.errors.len(),
-            "sync completed with transfer errors; keeping previous page token for retry"
+            "sync had transfer errors; will retry next cycle"
         );
     }
     if !committed_pending_keys.is_empty() {
         tracing::info!(
             cleared_committed_pending = committed_pending_keys.len(),
-            "cleared committed pending operations after durable session persist"
+            "Cleared committed recovery operations"
         );
     }
 
     let metadata_rows = store.record_count()?;
-    tracing::info!(metadata_rows, "session metadata persisted after sync cycle");
+    tracing::info!(metadata_rows, "Saved session metadata");
 
     store.clear_remote_snapshot()?;
     tracing::info!(
@@ -190,7 +190,7 @@ pub async fn run_sync_incremental(
         downloaded = report.downloaded.len(),
         skipped = report.skipped,
         conflicts = report.conflicts.len(),
-        "sync cycle complete"
+        "Sync cycle finished"
     );
     Ok(report)
 }
@@ -208,7 +208,7 @@ fn recover_pending_operations(store: &Store, redb: &RedbStore) -> Result<(), Oxi
     for (path_raw, data) in rows {
         let path = RelativePath::from(path_raw.as_str());
         if !path.is_safe_non_empty() {
-            tracing::warn!(path = %path_raw, "discarding unsafe pending operation path");
+            tracing::warn!(path = %path_raw, "skipping pending operation with an unsafe path");
             redb.delete_pending_op_sync(&path_raw)?;
             discarded += 1;
             continue;
@@ -219,7 +219,7 @@ fn recover_pending_operations(store: &Store, redb: &RedbStore) -> Result<(), Oxi
                 tracing::warn!(
                     path = %path_raw,
                     error = %e,
-                    "discarding invalid pending operation payload"
+                    "could not read pending operation"
                 );
                 redb.delete_pending_op_sync(&path_raw)?;
                 discarded += 1;
@@ -267,7 +267,7 @@ fn recover_pending_operations(store: &Store, redb: &RedbStore) -> Result<(), Oxi
                     tracing::warn!(
                         path = %path,
                         error = %e,
-                        "pending operation recovery failed; keeping journal entry for retry"
+                        "could not recover pending operation; will retry"
                     );
                 }
             }
@@ -287,7 +287,7 @@ fn recover_pending_operations(store: &Store, redb: &RedbStore) -> Result<(), Oxi
         recovered_pending_ops = recovered,
         discarded_pending_ops = discarded,
         preserved_pending_ops = preserved,
-        "recovery pass over pending operations complete"
+        "Finished recovering interrupted operations"
     );
     Ok(())
 }
@@ -370,14 +370,14 @@ async fn fetch_remote_state_incremental(
 ) -> Result<RemoteSyncInput, OxidriveError> {
     match redb.get_page_token().await? {
         Some(page_token) => {
-            tracing::info!("page token found, fetching incremental Drive changes");
+            tracing::info!("Fetching incremental Drive changes");
             let (changes, next_page_token) = fetch_changes(client, &page_token).await?;
             let remote = match build_incremental_remote_view(store, root_id, changes) {
                 Ok(remote) => remote,
                 Err(err) => {
                     tracing::warn!(
                         error = %err,
-                        "failed to resolve incremental changes to full paths; falling back to full scan"
+                        "could not apply Drive changes; listing the whole tree"
                     );
                     list_all_files(client, root_id).await?
                 }
@@ -388,8 +388,8 @@ async fn fetch_remote_state_incremental(
             })
         }
         None => {
-            tracing::info!("no page token found, running full scan for initial sync");
-            tracing::info!(sync_dir = %config.sync_dir.display(), "listing remote Drive tree");
+            tracing::info!("No previous sync cursor; listing the full Drive tree");
+            tracing::info!(sync_dir = %config.sync_dir.display(), "Listing the remote Drive tree");
             let remote = list_all_files(client, root_id).await?;
             let next_page_token = get_start_page_token(client).await?;
             Ok(RemoteSyncInput {

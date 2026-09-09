@@ -426,7 +426,7 @@ fn parse_callback_code(req: &str, expected_state: &str) -> Result<String, AuthEr
         .ok_or(AuthError::OAuthCallbackParse)?
         .as_str();
     if state != expected_state {
-        warn!("OAuth callback state mismatch");
+        warn!("oauth callback state mismatch");
         return Err(AuthError::StateMismatch);
     }
     if let Some(error) = params.get("error") {

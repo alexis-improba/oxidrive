@@ -121,7 +121,7 @@ impl SyncExecutor {
         if stale_upload_sessions > 0 {
             tracing::info!(
                 stale_upload_sessions,
-                "purged stale resumable upload sessions before execution"
+                "Removed stale resumable upload sessions"
             );
         }
 
@@ -200,7 +200,7 @@ impl SyncExecutor {
                             path = %path,
                             resolution = ?resolution,
                             action_count = 2,
-                            "applying conflict resolution"
+                            "keeping both versions after a conflict"
                         );
 
                         let download = async {
@@ -299,7 +299,7 @@ impl SyncExecutor {
                         path = %path,
                         resolution = ?resolution,
                         action_count = follow_ups.len(),
-                        "applying conflict resolution"
+                        "keeping both versions after a conflict"
                     );
 
                     let original_remote_meta = remote_snap.get(&path).cloned();
@@ -479,7 +479,7 @@ impl SyncExecutor {
                         tracing::info!(
                             path = %path,
                             required_confirmations = DELETE_CONFIRMATIONS_REQUIRED,
-                            "deferring local-delete propagation until confirmation threshold is reached"
+                            "Waiting for another cycle before deleting this local file"
                         );
                         report.skipped += 1;
                         pb.inc(1);
@@ -599,7 +599,7 @@ impl SyncExecutor {
                         tracing::info!(
                             path = %path,
                             required_confirmations = DELETE_CONFIRMATIONS_REQUIRED,
-                            "deferring remote-trash propagation until local deletion is confirmed across cycles"
+                            "Waiting for another cycle before trashing this remote file"
                         );
                         report.skipped += 1;
                         pb.inc(1);
@@ -648,7 +648,7 @@ impl SyncExecutor {
                         drive_file_id = %remote_id,
                         remote_head_revision_id = ?remote.head_revision_id,
                         remote_version = ?remote.version,
-                        "guarded upload revision mismatch; applying conflict_copy resolution"
+                        "remote file changed during upload; keeping both versions"
                     );
                     let conflict_copy = ConflictResolution::ConflictCopy {
                         suffix: conflict_copy_suffix(self.device_id.as_str()),
@@ -837,7 +837,7 @@ fn append_resolved_conflict_log(
             path = %path,
             resolution,
             error = %error,
-            "failed to append conflict log entry"
+            "could not write the conflict log"
         );
     }
 }
@@ -1128,7 +1128,7 @@ async fn run_upload(
                 tracing::warn!(
                     path = %path,
                     drive_file_id = %existing_id,
-                    "identical file already exists on Drive; linking to it instead of uploading a duplicate"
+                    "identical file already exists on Drive; linking instead of uploading a duplicate"
                 );
                 let _ = store.remove_upload_session(&path);
                 existing_id
@@ -1752,7 +1752,7 @@ fn skip_upload_for_active_foreign_lease(
                         path = %path,
                         drive_file_id = %lease.drive_file_id,
                         error = %error,
-                        "failed to persist observed active lease"
+                        "could not save an active file lease"
                     );
                 }
             }
@@ -1761,11 +1761,15 @@ fn skip_upload_for_active_foreign_lease(
                     path = %path,
                     drive_file_id = %lease.drive_file_id,
                     error = %error,
-                    "failed to encode observed active lease"
+                    "could not encode an active file lease"
                 );
             }
         }
-        tracing::info!("fichier {} édité par {}", path, lease.owner_device);
+        tracing::warn!(
+            path = %path,
+            owner = %lease.owner_device,
+            "this file is being edited on another device"
+        );
         return true;
     }
     let _ = redb.delete_lease_sync(&remote.id);

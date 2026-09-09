@@ -3,7 +3,6 @@
 use std::future::Future;
 use std::hash::{Hash, Hasher};
 use std::time::Duration;
-use tracing::warn;
 
 /// Configuration for [`retry_with_backoff`].
 #[derive(Debug, Clone)]
@@ -77,12 +76,12 @@ where
                 }
                 let jittered = ((delay_ms * jitter_factor()) as u64).max(1);
                 let capped = jittered.min(config.max_delay_ms);
-                warn!(
+                tracing::debug!(
                     attempt = attempt + 1,
                     max_retries = config.max_retries,
                     delay_ms = capped,
                     error = %e,
-                    "operation failed; retrying after backoff"
+                    "retrying after a failed request"
                 );
                 tokio::time::sleep(Duration::from_millis(capped)).await;
                 delay_ms = (delay_ms * config.backoff_factor).min(config.max_delay_ms as f64);

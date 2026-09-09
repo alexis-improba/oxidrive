@@ -13,10 +13,10 @@ pub struct Cli {
     /// Path to the configuration file (TOML or JSON).
     #[arg(long, global = true, value_name = "PATH")]
     pub config: Option<PathBuf>,
-    /// Increase log verbosity (repeat for more detail).
+    /// Show extra human-readable log lines (repeat for even more, less important, detail).
     #[arg(long, global = true, action = clap::ArgAction::Count)]
     pub verbose: u8,
-    /// Reduce log output (overrides config log level when set).
+    /// Only warnings and errors (same as the default; overrides a chatty config).
     #[arg(long, global = true, conflicts_with = "verbose")]
     pub quiet: bool,
     #[command(subcommand)]

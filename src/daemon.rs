@@ -29,7 +29,7 @@ pub async fn run_daemon(
     let shutdown = CancellationToken::new();
     spawn_shutdown_handler(shutdown.clone());
 
-    tracing::info!("daemon: running initial sync cycle");
+    tracing::info!("Running the first sync cycle");
     let initial = run_sync_cycle(config, client, store, redb).await;
     log_report(&initial);
 
@@ -38,20 +38,20 @@ pub async fn run_daemon(
     tracing::info!(
         sync_dir = %config.sync_dir.display(),
         debounce_ms = config.debounce_ms,
-        "daemon: local filesystem watcher started"
+        "Watching the local folder for changes"
     );
 
     let interval_secs = config.sync_interval_secs.max(1);
     let mut interval = tokio::time::interval(Duration::from_secs(interval_secs));
     interval.tick().await;
-    tracing::info!(interval_secs, "daemon: periodic timer started");
+    tracing::info!(interval_secs, "Periodic sync timer started");
 
     let sync_semaphore = Arc::new(Semaphore::new(1));
 
     loop {
         tokio::select! {
             _ = shutdown.cancelled() => {
-                tracing::info!("daemon: shutting down on signal");
+                tracing::info!("Shutting down after a stop signal");
                 break;
             }
             _ = interval.tick() => {
@@ -79,7 +79,7 @@ pub async fn run_daemon(
                         }
                     }
                     None => {
-                        tracing::warn!("daemon: watcher channel closed; continuing with periodic sync only");
+                        tracing::warn!("folder watcher stopped; continuing with periodic sync only");
                     }
                 }
             }
@@ -87,7 +87,7 @@ pub async fn run_daemon(
     }
 
     store.persist_to_redb(redb)?;
-    tracing::info!("daemon: final metadata persisted; shutdown complete");
+    tracing::info!("Saved session metadata; shutdown complete");
     Ok(())
 }
 
@@ -132,11 +132,11 @@ fn log_report(report: &Result<SyncReport, OxidriveError>) {
                 skipped = report.skipped,
                 errors = report.errors.len(),
                 duration_ms = report.duration.as_millis(),
-                "daemon: sync cycle complete"
+                "Sync cycle finished"
             );
         }
         Err(error) => {
-            tracing::error!(error = %error, "daemon: sync cycle failed");
+            tracing::error!(error = %error, "sync cycle failed");
         }
     }
 }
@@ -150,9 +150,9 @@ fn spawn_shutdown_handler(shutdown: CancellationToken) {
             let mut sigterm = match signal(SignalKind::terminate()) {
                 Ok(s) => s,
                 Err(error) => {
-                    tracing::warn!(error = %error, "daemon: failed to install SIGTERM handler; waiting for Ctrl+C only");
+                    tracing::warn!(error = %error, "could not install the SIGTERM handler; waiting for Ctrl+C only");
                     if let Err(ctrl_c_error) = tokio::signal::ctrl_c().await {
-                        tracing::warn!(error = %ctrl_c_error, "daemon: ctrl_c signal handler failed");
+                        tracing::warn!(error = %ctrl_c_error, "could not listen for Ctrl+C");
                     }
                     shutdown.cancel();
                     return;
@@ -162,13 +162,13 @@ fn spawn_shutdown_handler(shutdown: CancellationToken) {
             tokio::select! {
                 ctrl = tokio::signal::ctrl_c() => {
                     if let Err(error) = ctrl {
-                        tracing::warn!(error = %error, "daemon: ctrl_c signal handler failed");
+                        tracing::warn!(error = %error, "could not listen for Ctrl+C");
                     } else {
-                        tracing::info!("daemon: received SIGINT");
+                        tracing::info!("Received SIGINT");
                     }
                 }
                 _ = sigterm.recv() => {
-                    tracing::info!("daemon: received SIGTERM");
+                    tracing::info!("Received SIGTERM");
                 }
             }
             shutdown.cancel();
@@ -177,9 +177,9 @@ fn spawn_shutdown_handler(shutdown: CancellationToken) {
         #[cfg(not(unix))]
         {
             if let Err(error) = tokio::signal::ctrl_c().await {
-                tracing::warn!(error = %error, "daemon: ctrl_c signal handler failed");
+                tracing::warn!(error = %error, "could not listen for Ctrl+C");
             } else {
-                tracing::info!("daemon: received Ctrl+C");
+                tracing::info!("Received Ctrl+C");
             }
             shutdown.cancel();
         }

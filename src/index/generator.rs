@@ -43,7 +43,7 @@ pub async fn update_index(
     let mut count = 0usize;
     for rel in changed_files {
         if !rel.is_safe_non_empty() {
-            tracing::warn!(path = %rel, "skipping unsafe path for index update");
+            tracing::warn!(path = %rel, "skipping unsafe path for the search index");
             continue;
         }
         if rel.as_str().starts_with(".oxidrive/") || rel.as_str().starts_with(".index/") {

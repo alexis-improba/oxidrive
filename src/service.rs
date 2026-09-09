@@ -115,7 +115,6 @@ Type=simple
 ExecStart={exec_start}
 Restart=on-failure
 RestartSec=30
-Environment=RUST_LOG=info
 
 [Install]
 WantedBy=default.target

@@ -64,7 +64,7 @@ impl DriveClient {
             .unwrap_or_else(|e| {
                 tracing::warn!(
                     error = %e,
-                    "reqwest builder failed; falling back to default client"
+                    "could not build the HTTP client; using the default instead"
                 );
                 Client::new()
             });
