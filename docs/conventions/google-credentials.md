@@ -35,11 +35,13 @@ Google displays the **Client ID** and **Client secret**.
 
 ## Step 5: Fill in `config.toml`
 
-Copy `client_id` and `client_secret` into the OAuth section of your `config.toml`, using the keys expected by the project (exact names in the example shipped with oxidrive).
+Copy `client_id` and `client_secret` into the OAuth section of your `config.toml`, using the keys expected by the project (exact names in the example shipped with oxidrive). Keep this file in the **parent** of the folder you will sync, not in the oxidrive git clone.
 
 Do not commit this file if it contains secrets.
 
 ## Step 6: Finish with `oxidrive setup`
+
+From that same parent directory (so oxidrive finds `./config.toml`):
 
 ```bash
 oxidrive setup

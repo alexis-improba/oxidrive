@@ -41,12 +41,13 @@ This document defines the style and quality rules for the **oxidrive** repositor
 ## Logging
 
 - Use the **`tracing`** crate (`tracing::info!`, `debug!`, `warn!`, `error!`) instead of `println!` for anything related to diagnostics or execution tracing.
+- Console lines follow a **Git-like** form (`warning:` / `error:` prefixes; no per-line clock or `INFO`/`WARN` labels).
 - Choose the **level** consistently:
-  - **error**: failure that blocks an operation or sync; requires user attention.
-  - **warn**: abnormal but recoverable situation (retry, ignored file, soft quota exceeded).
-  - **info**: user-visible milestones (sync start/end, number of files processed).
-  - **debug** / **trace**: details for development or support (requests, paths, intermediate states).
-- Honor **`RUST_LOG`** configuration and CLI flags (`--verbose`, `--quiet`) exposed via `tracing-subscriber`.
+  - **error**: failure that blocks an operation or sync; requires user attention (visible by default).
+  - **warn**: abnormal but recoverable situation (retry, ignored file, soft quota exceeded); visible by default.
+  - **info**: user-visible milestones (sync start/end, counts) shown with `--verbose`.
+  - **debug** / **trace**: extra detail with `--verbose --verbose` (same human format; not a crate dump).
+- Honor **`RUST_LOG`** when no CLI verbosity flags are set, plus `--verbose` / `--quiet`. Default console filter is `warn`.
 
 ---
 

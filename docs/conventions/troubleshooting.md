@@ -34,7 +34,7 @@ OAuth2 access tokens expire. If refresh fails or the session is invalid:
 ## Sync stuck / no files transferred
 
 1. Confirm that `drive_folder_id` in the config points to the intended Drive folder.
-2. Run with verbose logging: `oxidrive sync --verbose --verbose` (or the CLI equivalent) to see where it stalls.
+2. Run with readable extra logs: `oxidrive sync --once --verbose` to see sync steps. Repeat `--verbose` if you need more detail (same format).
 3. Check network connectivity (firewall, proxy, DNS).
 
 ## Pending operations remain in status
@@ -43,7 +43,7 @@ If `oxidrive status` shows non-zero **Pending ops**, the previous run likely sto
 
 1. Run `oxidrive sync --once` to trigger recovery and flush pending entries.
 2. Re-run `oxidrive status` and confirm `Pending ops: 0`.
-3. If entries persist, run `oxidrive sync --once --verbose --verbose` and inspect warnings around `recover_pending_operations`.
+3. If entries persist, run `oxidrive sync --once --verbose` and read the recovery warnings.
 
 ## Conflicts and conflict copies
 
@@ -90,3 +90,9 @@ To reduce pressure on the API:
 - Avoid large bursts of tiny files when possible, or spread the load.
 
 If the issue persists, check the Google Cloud console (quotas, detailed errors) and limits for your account / project type.
+
+## Service logs are too quiet or too chatty
+
+The generated systemd user unit does **not** set `RUST_LOG`. After `oxidrive service install`, the process follows `log_level` in the config (default: warnings and errors). Units installed before this change may still have `Environment=RUST_LOG=info` : run `oxidrive service install` again to rewrite the unit, then `oxidrive service start`.
+
+To see sync steps from the service, put `--verbose` on `ExecStart` (re-install after editing) or set `RUST_LOG` yourself on purpose.
